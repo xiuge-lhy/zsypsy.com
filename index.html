@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智水云棚溯源系统</title>
+  <!-- 引入Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入Font Awesome图标 -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <!-- 引入Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- 配置Tailwind自定义主题 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#11E9F2', // 主色调-浅蓝色（智水云棚主题色）
+            secondary: '#4A90E2', // 辅助色-蓝色
+            accent: '#34D399', // 强调色-绿松石色
+            neutral: '#F5F7FA', // 中性色-浅灰色
+            dark: '#1E293B' // 深色-深蓝灰
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  <!-- 自定义工具类 -->
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .timeline-dot {
+        @apply w-6 h-6 rounded-full flex items-center justify-center z-10;
+      }
+      .timeline-line {
+        @apply absolute left-3 top-6 bottom-0 w-0.5 z-0;
+      }
+      .card-hover {
+        @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
+      }
+      .fade-in {
+        @apply opacity-0 translate-y-8 transition-all duration-700 ease-out;
+      }
+      .fade-in.active {
+        @apply opacity-100 translate-y-0;
+      }
+      .chart-container {
+        @apply relative w-full h-80 md:h-96;
+      }
+    }
+  </style>
+</head>
+<body class="bg-neutral font-sans text-dark">
+  <!-- 顶部导航栏 -->
+  <header class="bg-white text-dark shadow-md sticky top-0 z-50 transition-all duration-300" id="navbar">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <!-- 智水云棚图标 -->
+        <img src="aa.png" alt="智水云棚图标" class="w-10 h-10"/>
+        <h1 class="text-xl md:text-2xl font-bold text-dark">智水云棚溯源系统</h1>
+      </div>
+      <nav class="hidden md:flex items-center space-x-6">
+        <a href="#overview" class="hover:text-primary transition-colors">产品概况</a>
+        <a href="#timeline" class="hover:text-primary transition-colors">溯源时间线</a>
+      </nav>
+      <button class="md:hidden text-dark text-xl" id="menu-toggle">
+        <i class="fa fa-bars"></i>
+      </button>
+    </div>
+    <!-- 移动端菜单 -->
+    <div class="md:hidden hidden bg-white absolute w-full shadow-md" id="mobile-menu">
+      <div class="container mx-auto px-4 py-3 flex flex-col space-y-3">
+        <a href="#timeline" class="py-2 hover:text-primary transition-colors">溯源时间线</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- 环境数据图表部分 -->
+  <section id="environment-data" class="py-12 md:py-20 bg-gradient-to-b from-white to-neutral">
+    <div class="container mx-auto px-4">
+      <div class="max-w-3xl mx-auto text-center mb-16">
+        <h2 class="text-[clamp(1.8rem,4vw,2.5rem)] font-bold text-dark mb-4">该批次环境参数监测数据</h2>
+        <p class="text-gray-600 text-lg">展示从种植到收获期间的关键环境参数变化趋势，确保生长环境的稳定性</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- 温度和湿度图表 -->
+        <div class="bg-white rounded-lg shadow-lg p-6 fade-in">
+          <div class="flex items-center mb-4">
+            <div class="bg-primary/30 p-2 rounded-full text-primary mr-3">
+              <i class="fa fa-area-chart text-xl"></i>
+            </div>
+            <h3 class="text-xl font-bold text-dark">月平均温度与湿度变化</h3>
+          </div>
+          <div class="chart-container">
+            <canvas id="tempHumidityChart"></canvas>
+          </div>
+        </div>
+
+        <!-- 二氧化碳和光照图表 -->
+        <div class="bg-white rounded-lg shadow-lg p-6 fade-in" style="transition-delay: 200ms;">
+          <div class="flex items-center mb-4">
+            <div class="bg-secondary/30 p-2 rounded-full text-secondary mr-3">
+              <i class="fa fa-line-chart text-xl"></i>
+            </div>
+            <h3 class="text-xl font-bold text-dark">月平均二氧化碳与光照变化</h3>
+          </div>
+          <div class="chart-container">
+            <canvas id="co2LightChart"></canvas>
+          </div>
+        </div>
+
+        <!-- 环境参数说明卡片 -->
+        <div class="bg-white rounded-lg shadow-lg p-6 fade-in" style="transition-delay: 400ms;">
+          <div class="flex items-start mb-4">
+            <div class="bg-accent/30 p-2 rounded-full text-accent mr-3 mt-1">
+              <i class="fa fa-info-circle text-xl"></i>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold text-dark mb-2">最佳生长环境参数</h3>
+              <p class="text-gray-600">雾培良姜生长的最适环境参数范围</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="bg-primary/5 p-4 rounded-lg">
+              <h4 class="font-semibold text-primary mb-2">温度</h4>
+              <p class="text-dark font-bold">白天: 28-32℃</p>
+              <p class="text-dark font-bold">夜间: 18-22℃</p>
+            </div>
+            <div class="bg-secondary/5 p-4 rounded-lg">
+              <h4 class="font-semibold text-secondary mb-2">湿度</h4>
+              <p class="text-dark font-bold">75-85%</p>
+            </div>
+            <div class="bg-accent/5 p-4 rounded-lg">
+              <h4 class="font-semibold text-accent mb-2">二氧化碳</h4>
+              <p class="text-dark font-bold">800-1200ppm</p>
+            </div>
+            <div class="bg-dark/5 p-4 rounded-lg">
+              <h4 class="font-semibold text-dark mb-2">光照</h4>
+              <p class="text-dark font-bold">15000-25000lux</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 数据采集说明 -->
+        <div class="bg-white rounded-lg shadow-lg p-6 fade-in" style="transition-delay: 600ms;">
+          <div class="flex items-start mb-4">
+            <div class="bg-dark/30 p-2 rounded-full text-dark mr-3 mt-1">
+              <i class="fa fa-calendar-check-o text-xl"></i>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold text-dark mb-2">数据采集说明</h3>
+              <p class="text-gray-600">环境参数监测系统工作方式</p>
+            </div>
+          </div>
+          <ul class="space-y-3 text-gray-600">
+            <li class="flex items-start">
+              <i class="fa fa-check-circle text-primary mt-1 mr-2"></i>
+              <span>自动采集环境数据，确保数据连续性</span>
+            </li>
+            <li class="flex items-start">
+              <i class="fa fa-check-circle text-primary mt-1 mr-2"></i>
+              <span>数据实时上传至云端，支持历史数据查询和分析</span>
+            </li>
+            <li class="flex items-start">
+              <i class="fa fa-check-circle text-primary mt-1 mr-2"></i>
+              <span>当参数超出阈值时，系统自动报警并调整环境条件</span>
+            </li>
+            <li class="flex items-start">
+              <i class="fa fa-check-circle text-primary mt-1 mr-2"></i>
+              <span>图表展示的是每月平均值，数据来源：智水云棚智能监控系统</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 溯源时间线 -->
+  <section id="timeline" class="py-16 bg-white">
+    <div class="container mx-auto px-4">
+      <div class="max-w-3xl mx-auto text-center mb-16">
+        <h2 class="text-[clamp(1.8rem,4vw,2.5rem)] font-bold text-dark mb-4">该批次良姜雾培溯源时间线</h2>
+        <p class="text-gray-600 text-lg">记录良姜从种植到收获的关键节点，让您清晰了解产品的生长历程</p>
+      </div>
+
+      <!-- 时间线主体 -->
+      <div class="max-w-4xl mx-auto relative">
+        <!-- 时间线轴线 -->
+        <div class="timeline-line bg-secondary/50"></div>
+
+        <!-- 时间节点1：种芽准备 -->
+        <div class="timeline-item mb-12 relative fade-in">
+          <div class="flex flex-col md:flex-row items-start">
+            <!-- 时间点 -->
+            <div class="md:w-1/4 flex flex-col items-center md:items-start mb-4 md:mb-0">
+              <div class="timeline-dot bg-primary text-white">
+                <i class="fa fa-seedling"></i>
+              </div>
+              <span class="mt-2 text-sm font-medium text-primary">2024年2月10日</span>
+              <span class="text-xs text-gray-500">种芽准备</span>
+            </div>
+            <!-- 内容卡片 -->
+            <div class="md:w-3/4 ml-0 md:ml-6 bg-white rounded-lg shadow-md p-6 card-hover border-l-4 border-primary">
+              <h3 class="text-xl font-bold text-dark mb-2">良姜种芽选择与消毒</h3>
+              <p class="text-gray-600 mb-4">选择健康、饱满的良姜种芽，进行科学消毒处理，为雾培种植做好准备。在智能温室环境中进行预处理，确保种芽活性。</p>
+              <div class="flex flex-wrap gap-2">
+                <span class="bg-primary/10 text-primary text-xs px-3 py-1 rounded-full">种芽直径：2-3cm</span>
+                <span class="bg-primary/10 text-primary text-xs px-3 py-1 rounded-full">消毒时间：30分钟</span>
+                <span class="bg-primary/10 text-primary text-xs px-3 py-1 rounded-full">温室温度：28℃</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 时间节点2：雾培系统启动 -->
+        <div class="timeline-item mb-12 relative fade-in">
+          <div class="flex flex-col md:flex-row items-start">
+            <div class="md:w-1/4 flex flex-col items-center md:items-start mb-4 md:mb-0">
+              <div class="timeline-dot bg-secondary text-white">
+                <i class="fa fa-cogs"></i>
+              </div>
+              <span class="mt-2 text-sm font-medium text-secondary">2024年2月15日</span>
+              <span class="text-xs text-gray-500">系统启动</span>
+            </div>
+            <div class="md:w-3/4 ml-0 md:ml-6 bg-white rounded-lg shadow-md p-6 card-hover border-l-4 border-secondary">
+              <h3 class="text-xl font-bold text-dark mb-2">雾培系统初始化与调试</h3>
+              <p class="text-gray-600 mb-4">启动智能雾培系统，调试喷雾装置、营养液循环系统和环境监控设备，确保各项参数符合良姜生长需求。</p>
+              <div class="flex flex-wrap gap-2">
+                <span class="bg-secondary/10 text-secondary text-xs px-3 py-1 rounded-full">pH值：6.0-6.5</span>
+                <span class="bg-secondary/10 text-secondary text-xs px-3 py-1 rounded-full">EC值：1.2-1.5ms/cm</span>
+                <span class="bg-secondary/10 text-secondary text-xs px-3 py-1 rounded-full">喷雾频率：每30分钟一次</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 时间节点3：种植与固定 -->
+        <div class="timeline-item mb-12 relative fade-in">
+          <div class="flex flex-col md:flex-row items-start">
+            <div class="md:w-1/4 flex flex-col items-center md:items-start mb-4 md:mb-0">
+              <div class="timeline-dot bg-primary text-white">
+                <i class="fa fa-plus-circle"></i>
+              </div>
+              <span class="mt-2 text-sm font-medium text-primary">2024年2月20日</span>
+              <span class="text-xs text-gray-500">种植固定</span>
+            </div>
+            <div class="md:w-3/4 ml-0 md:ml-6 bg-white rounded-lg shadow-md p-6 card-hover border-l-4 border-primary">
+              <h3 class="text-xl font-bold text-dark mb-2">种芽植入与固定</h3>
+              <p class="text-gray-600 mb-4">将处理好的良姜种芽植入雾培定植板，使用食品级固定材料进行固定，确保根系能够充分接触营养液喷雾。</p>
+              <div class="flex flex-wrap gap-2">
+                <span class="bg-primary/10 text-primary text-xs px-3 py-1 rounded-full">定植密度：10株/㎡</span>
+                <span class="bg-primary/10 text-primary text-xs px-3 py-1 rounded-full">光照强度：15000lux</span>
+                <span class="bg-primary/10 text-primary text-xs px-3 py-1 rounded-full">湿度：75-80%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 时间节点4：第一次营养液调整 -->
+        <div class="timeline-item mb-12 relative fade-in">
+          <div class="flex flex-col md:flex-row items-start">
+            <div class="md:w-1/4 flex flex-col items-center md:items-start mb-4 md:mb-0">
+              <div class="timeline-dot bg-accent text-white">
+                <i class="fa fa-flask"></i>
+              </div>
+              <span class="mt-2 text-sm font-medium text-accent">2024年3月10日</span>
+              <span class="text-xs text-gray-500">营养液调整</span>
+            </div>
+            <div class="md:w-3/4 ml-0 md:ml-6 bg-white rounded-lg shadow-md p-6 card-hover border-l-4 border-accent">
+              <h3 class="text-xl font-bold text-dark mb-2">生长期营养液配方调整</h3>
+              <p class="text-gray-600 mb-4">良姜进入快速生长期，调整营养液配方，增加氮元素比例，促进茎叶生长和根系发育，同时通过智能系统实时监测生长数据。</p>
+              <div class="flex flex-wrap gap-2">
+                <span class="bg-accent/10 text-accent text-xs px-3 py-1 rounded-full">N:P:K = 3:1:2</span>
+                <span class="bg-accent/10 text-accent text-xs px-3 py-1 rounded-full">添加微量元素</span>
+                <span class="bg-accent/10 text-accent text-xs px-3 py-1 rounded-full">每7天检测一次</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 时间节点5：病虫害监测 -->
+        <div class="timeline-item mb-12 relative fade-in">
+          <div class="flex flex-col md:flex-row items-start">
+            <div class="md:w-1/4 flex flex-col items-center md:items-start mb-4 md:mb-0">
+              <div class="timeline-dot bg-red-500 text-white">
+                <i class="fa fa-bug"></i>
+              </div>
+              <span class="mt-2 text-sm font-medium text-red-500">2024年4月5日</span>
+              <span class="text-xs text-gray-500">病虫害监测</span>
+            </div>
+            <div class="md:w-3/4 ml-0 md:ml-6 bg-white rounded-lg shadow-md p-6 card-hover border-l-4 border-red-500">
+              <h3 class="text-xl font-bold text-dark mb-2">智能病虫害监测与预防</h3>
+              <p class="text-gray-600 mb-4">通过AI视觉系统监测到少量蚜虫活动，立即启动生物防治方案，释放瓢虫等天敌，并调整温室通风条件，未使用任何化学农药。</p>
+              <div class="flex flex-wrap gap-2">
+                <span class="bg-red-500/10 text-red-500 text-xs px-3 py-1 rounded-full">生物防治</span>
+                <span class="bg-red-500/10 text-red-500 text-xs px-3 py-1 rounded-full">蚜虫防治</span>
+                <span class="bg-red-500/10 text-red-500 text-xs px-3 py-1 rounded-full">通风优化</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 时间节点6：第二次营养液调整 -->
+        <div class="timeline-item mb-12 relative fade-in">
+          <div class="flex flex-col md:flex-row items-start">
+            <div class="md:w-1/4 flex flex-col items-center md:items-start mb-4 md:mb-0">
+              <div class="timeline-dot bg-accent text-white">
+                <i class="fa fa-flask"></i>
+              </div>
+              <span class="mt-2 text-sm font-medium text-accent">2024年5月20日</span>
+              <span class="text-xs text-gray-500">营养液调整</span>
+            </div>
+            <div class="md:w-3/4 ml-0 md:ml-6 bg-white rounded-lg shadow-md p-6 card-hover border-l-4 border-accent">
+              <h3 class="text-xl font-bold text-dark mb-2">块茎膨大期营养调整</h3>
+              <p class="text-gray-600 mb-4">良姜进入块茎膨大期，调整营养液配方，增加钾元素比例，促进块茎发育和养分积累，同时控制生长环境，提高品质。</p>
+              <div class="flex flex-wrap gap-2">
+                <span class="bg-accent/10 text-accent text-xs px-3 py-1 rounded-full">N:P:K = 1:1:3</span>
+                <span class="bg-accent/10 text-accent text-xs px-3 py-1 rounded-full">增加钙元素</span>
+                <span class="bg-accent/10 text-accent text-xs px-3 py-1 rounded-full">夜温控制：18℃</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 时间节点7：收获前检测 -->
+        <div class="timeline-item mb-12 relative fade-in">
+          <div class="flex flex-col md:flex-row items-start">
+            <div class="md:w-1/4 flex flex-col items-center md:items-start mb-4 md:mb-0">
+              <div class="timeline-dot bg-secondary text-white">
+                <i class="fa fa-check-square-o"></i>
+              </div>
+              <span class="mt-2 text-sm font-medium text-secondary">2024年7月15日</span>
+              <span class="text-xs text-gray-500">收获检测</span>
+            </div>
+            <div class="md:w-3/4 ml-0 md:ml-6 bg-white rounded-lg shadow-md p-6 card-hover border-l-4 border-secondary">
+              <h3 class="text-xl font-bold text-dark mb-2">品质检测与收获准备</h3>
+              <p class="text-gray-600 mb-4">对良姜进行品质检测，包括大小、重量、营养成分和风味物质等指标，确认达到收获标准，准备进行无损伤收获操作。</p>
+              <div class="flex flex-wrap gap-2">
+                <span class="bg-secondary/10 text-secondary text-xs px-3 py-1 rounded-full">平均单重：250g</span>
+                <span class="bg-secondary/10 text-secondary text-xs px-3 py-1 rounded-full">挥发油含量：1.2%</span>
+                <span class="bg-secondary/10 text-secondary text-xs px-3 py-1 rounded-full">品质A级</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 时间节点8：收获与包装 -->
+        <div class="timeline-item relative fade-in">
+          <div class="flex flex-col md:flex-row items-start">
+            <div class="md:w-1/4 flex flex-col items-center md:items-start mb-4 md:mb-0">
+              <div class="timeline-dot bg-dark text-white">
+                <i class="fa fa-scissors"></i>
+              </div>
+              <span class="mt-2 text-sm font-medium text-dark">2024年7月25日</span>
+              <span class="text-xs text-gray-500">收获包装</span>
+            </div>
+            <div class="md:w-3/4 ml-0 md:ml-6 bg-white rounded-lg shadow-md p-6 card-hover border-l-4 border-dark">
+              <h3 class="text-xl font-bold text-dark mb-2">智能收获与包装</h3>
+              <p class="text-gray-600 mb-4">采用无损伤收获技术，将良姜从雾培系统中取出，进行清洗、分级、包装等处理，每个环节都有详细记录，确保产品可追溯。</p>
+              <div class="flex flex-wrap gap-2">
+                <span class="bg-dark/10 text-dark text-xs px-3 py-1 rounded-full">无损伤收获</span>
+                <span class="bg-dark/10 text-dark text-xs px-3 py-1 rounded-full">真空包装</span>
+                <span class="bg-dark/10 text-dark text-xs px-3 py-1 rounded-full">溯源码生成</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 页脚 -->
+  <footer class="bg-dark text-white py-8">
+    <div class="container mx-auto px-4">
+      <div class="flex flex-col md:flex-row justify-between items-center">
+        <div class="flex items-center space-x-2 mb-4 md:mb-0">
+          <!-- 智水云棚图标 -->
+          <img src="aa.png" alt="智水云棚图标" class="w-8 h-8"/>
+          <h2 class="text-xl font-bold">智水云棚溯源系统</h2>
+        </div>
+        <div class="flex space-x-6">
+          <a href="#" class="text-white/70 hover:text-primary transition-colors">
+            <i class="fa fa-weixin text-xl"></i>
+          </a>
+          <a href="#" class="text-white/70 hover:text-primary transition-colors">
+            <i class="fa fa-weibo text-xl"></i>
+          </a>
+          <a href="#" class="text-white/70 hover:text-primary transition-colors">
+            <i class="fa fa-qq text-xl"></i>
+          </a>
+        </div>
+      </div>
+      <div class="border-t border-gray-700 mt-6 pt-6 text-center text-white/60 text-sm">
+        <p>© 2024 智水云棚溯源系统 版权所有 | 专注于高品质雾培良姜生产与溯源</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- JavaScript -->
+  <script>
+    // 移动端菜单切换
+    const menuToggle = document.getElementById('menu-toggle');
+    const mobileMenu = document.getElementById('mobile-menu');
+    
+    menuToggle.addEventListener('click', () => {
+      mobileMenu.classList.toggle('hidden');
+      const icon = menuToggle.querySelector('i');
+      if (mobileMenu.classList.contains('hidden')) {
+        icon.classList.remove('fa-times');
+        icon.classList.add('fa-bars');
+      } else {
+        icon.classList.remove('fa-bars');
+        icon.classList.add('fa-times');
+      }
+    });
+
+    // 导航栏滚动效果
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 50) {
+        navbar.classList.add('py-2');
+        navbar.classList.remove('py-3');
+        navbar.classList.add('shadow-lg');
+      } else {
+        navbar.classList.add('py-3');
+        navbar.classList.remove('py-2');
+        navbar.classList.remove('shadow-lg');
+      }
+    });
+
+    // 平滑滚动
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        
+        // 关闭移动端菜单
+        if (!mobileMenu.classList.contains('hidden')) {
+          mobileMenu.classList.add('hidden');
+          const icon = menuToggle.querySelector('i');
+          icon.classList.remove('fa-times');
+          icon.classList.add('fa-bars');
+        }
+        
+        const targetId = this.getAttribute('href');
+        const targetElement = document.querySelector(targetId);
+        
+        if (targetElement) {
+          window.scrollTo({
+            top: targetElement.offsetTop - 80,
+            behavior: 'smooth'
+          });
+        }
+      });
+    });
+
+    // 滚动渐入动画
+    const fadeElements = document.querySelectorAll('.fade-in');
+    
+    const fadeInOnScroll = () => {
+      fadeElements.forEach(element => {
+        const elementTop = element.getBoundingClientRect().top;
+        const elementVisible = 150;
+        
+        if (elementTop < window.innerHeight - elementVisible) {
+          element.classList.add('active');
+        }
+      });
+    };
+
+    // 初始加载时检查
+    window.addEventListener('load', fadeInOnScroll);
+    // 滚动时检查
+    window.addEventListener('scroll', fadeInOnScroll);
+
+    // 时间线动画效果
+    const timelineItems = document.querySelectorAll('.timeline-item');
+    
+    const animateTimeline = () => {
+      timelineItems.forEach((item, index) => {
+        const itemTop = item.getBoundingClientRect().top;
+        const itemVisible = 150;
+        
+        if (itemTop < window.innerHeight - itemVisible) {
+          setTimeout(() => {
+            item.classList.add('active');
+          }, index * 150);
+        }
+      });
+    };
+
+    window.addEventListener('scroll', animateTimeline);
+    window.addEventListener('load', animateTimeline);
+
+    // 环境数据图表
+    const createEnvironmentCharts = () => {
+      // 月份标签
+      const months = ['2月', '3月', '4月', '5月', '6月', '7月'];
+      
+      // 温度和湿度数据
+      const tempData = [28, 30, 31, 32, 32, 30];
+      const humidityData = [78, 80, 82, 83, 81, 79];
+      
+      // 二氧化碳和光照数据
+      const co2Data = [900, 1000, 1100, 1150, 1200, 1050];
+      const lightData = [15000, 18000, 22000, 24000, 25000, 23000];
+      
+      // 温度和湿度图表
+      const tempHumidityCtx = document.getElementById('tempHumidityChart').getContext('2d');
+      new Chart(tempHumidityCtx, {
+        type: 'line',
+        data: {
+          labels: months,
+          datasets: [
+            {
+              label: '温度 (℃)',
+              data: tempData,
+              borderColor: '#11E9F2', // 智水云棚主题色-浅蓝色
+              backgroundColor: 'rgba(17, 233, 242, 0.2)',
+              borderWidth: 4,
+              pointBackgroundColor: '#11E9F2',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+              pointRadius: 6,
+              pointHoverRadius: 8,
+              fill: true,
+              tension: 0.4,
+              yAxisID: 'y'
+            },
+            {
+              label: '湿度 (%)',
+              data: humidityData,
+              borderColor: '#4A90E2', // 智水云棚辅助色-蓝色
+              backgroundColor: 'rgba(74, 144, 226, 0.2)',
+              borderWidth: 4,
+              pointBackgroundColor: '#4A90E2',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+              pointRadius: 6,
+              pointHoverRadius: 8,
+              fill: true,
+              tension: 0.4,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: {
+                font: {
+                  family: 'Inter, sans-serif',
+                  size: 14,
+                  weight: 'bold'
+                },
+                padding: 20,
+                usePointStyle: true,
+                pointStyle: 'circle'
+              }
+            },
+            tooltip: {
+              backgroundColor: 'rgba(30, 41, 59, 0.95)',
+              padding: 15,
+              bodyFont: {
+                family: 'Inter, sans-serif',
+                size: 13
+              },
+              titleFont: {
+                family: 'Inter, sans-serif',
+                weight: 'bold',
+                size: 15
+              },
+              cornerRadius: 8,
+              displayColors: true,
+              usePointStyle: true
+            }
+          },
+          scales: {
+            y: {
+              type: 'linear',
+              display: true,
+              position: 'left',
+              title: {
+                display: true,
+                text: '温度 (℃)',
+                font: {
+                  weight: 'bold',
+                  size: 14
+                }
+              },
+              min: 20,
+              max: 40,
+              grid: {
+                color: 'rgba(0, 0, 0, 0.1)'
+              },
+              ticks: {
+                font: {
+                  family: 'Inter, sans-serif'
+                }
+              }
+            },
+            y1: {
+              type: 'linear',
+              display: true,
+              position: 'right',
+              title: {
+                display: true,
+                text: '湿度 (%)',
+                font: {
+                  weight: 'bold',
+                  size: 14
+                }
+              },
+              min: 70,
+              max: 90,
+              grid: {
+                drawOnChartArea: false,
+              },
+              ticks: {
+                font: {
+                  family: 'Inter, sans-serif'
+                }
+              }
+            },
+            x: {
+              grid: {
+                display: false
+              },
+              ticks: {
+                font: {
+                  family: 'Inter, sans-serif',
+                  weight: 'bold'
+                }
+              }
+            }
+          },
+          animation: {
+            duration: 2500,
+            easing: 'easeOutQuart'
+          }
+        }
+      });
+      
+      // 二氧化碳和光照图表
+      const co2LightCtx = document.getElementById('co2LightChart').getContext('2d');
+      new Chart(co2LightCtx, {
+        type: 'line',
+        data: {
+          labels: months,
+          datasets: [
+            {
+              label: '二氧化碳 (ppm)',
+              data: co2Data,
+              borderColor: '#34D399', // 智水云棚强调色-绿松石色
+              backgroundColor: 'rgba(52, 211, 153, 0.2)',
+              borderWidth: 4,
+              pointBackgroundColor: '#34D399',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+              pointRadius: 6,
+              pointHoverRadius: 8,
+              fill: true,
+              tension: 0.4,
+              yAxisID: 'y'
+            },
+            {
+              label: '光照 (lux)',
+              data: lightData,
+              borderColor: '#1E293B', // 智水云棚深色
+              backgroundColor: 'rgba(30, 41, 59, 0.2)',
+              borderWidth: 4,
+              pointBackgroundColor: '#1E293B',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+              pointRadius: 6,
+              pointHoverRadius: 8,
+              fill: true,
+              tension: 0.4,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: {
+                font: {
+                  family: 'Inter, sans-serif',
+                  size: 14,
+                  weight: 'bold'
+                },
+                padding: 20,
+                usePointStyle: true,
+                pointStyle: 'circle'
+              }
+            },
+            tooltip: {
+              backgroundColor: 'rgba(30, 41, 59, 0.95)',
+              padding: 15,
+              bodyFont: {
+                family: 'Inter, sans-serif',
+                size: 13
+              },
+              titleFont: {
+                family: 'Inter, sans-serif',
+                weight: 'bold',
+                size: 15
+              },
+              cornerRadius: 8,
+              displayColors: true,
+              usePointStyle: true
+            }
+          },
+          scales: {
+            y: {
+              type: 'linear',
+              display: true,
+              position: 'left',
+              title: {
+                display: true,
+                text: '二氧化碳 (ppm)',
+                font: {
+                  weight: 'bold',
+                  size: 14
+                }
+              },
+              min: 800,
+              max: 1300,
+              grid: {
+                color: 'rgba(0, 0, 0, 0.1)'
+              },
+              ticks: {
+                font: {
+                  family: 'Inter, sans-serif'
+                }
+              }
+            },
+            y1: {
+              type: 'linear',
+              display: true,
+              position: 'right',
+              title: {
+                display: true,
+                text: '光照 (lux)',
+                font: {
+                  weight: 'bold',
+                  size: 14
+                }
+              },
+              min: 10000,
+              max: 30000,
+              grid: {
+                drawOnChartArea: false,
+              },
+              ticks: {
+                font: {
+                  family: 'Inter, sans-serif'
+                }
+              }
+            },
+            x: {
+              grid: {
+                display: false
+              },
+              ticks: {
+                font: {
+                  family: 'Inter, sans-serif',
+                  weight: 'bold'
+                }
+              }
+            }
+          },
+          animation: {
+            duration: 2500,
+            easing: 'easeOutQuart'
+          }
+        }
+      });
+    };
+
+    // 图表初始化函数 - 增强版
+    const initCharts = () => {
+      // 检查元素是否存在
+      if (document.getElementById('tempHumidityChart') && document.getElementById('co2LightChart')) {
+        // 添加加载效果
+        const charts = [document.getElementById('tempHumidityChart'), document.getElementById('co2LightChart')];
+        charts.forEach(chart => {
+          const container = chart.parentElement;
+          const loadingDiv = document.createElement('div');
+          loadingDiv.className = 'absolute inset-0 flex items-center justify-center bg-white/80 z-10';
+          loadingDiv.innerHTML = '<div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>';
+          container.appendChild(loadingDiv);
+          
+          // 图表创建后移除加载效果
+          setTimeout(() => {
+            loadingDiv.remove();
+            createEnvironmentCharts();
+          }, 300);
+        });
+      }
+    };
+
+    // 页面加载完成后初始化图表
+    window.addEventListener('load', initCharts);
+  </script>
+</body>
+</html>
